@@ -10,3 +10,8 @@ def load_users():
         with open(USER_DATA, 'r') as file:
             return json.load(file)
     return {}
+
+# Funzione per salvare i dati degli utenti
+def save_users(users):
+    with open(USER_DATA, 'w') as file:
+        json.dump(users, file)
