@@ -24,7 +24,7 @@ class UserManager:
     # Metodo per salvare i dati degli utenti
     def save_users(self, users):
         with open(self.user_data_file, 'w') as file:
-            json.dump(users, file)
+            json.dump(users, file, indent=4) #indent è usato per la leggibilità del file json
 
     # Metodo per registrare un nuovo utente
     def register_user(self, username, password):
