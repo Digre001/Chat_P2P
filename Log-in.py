@@ -5,6 +5,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.backends import default_backend
 
+
 # Percosrso del file json contenente i dati degli utenti
 USER_DATA = 'user_data.json'
 
@@ -51,3 +52,18 @@ def register_users(username, password):
         save_users(users)
         print(f"Registrazione completata per l'utente {username}")
         return True
+
+# Funzione per effettuare il login
+def login_user(username, password):
+    users = load_users()
+    if username not in users:
+        print("Utente non trovato!")
+        return None
+    user_data = users[username]
+    password_hash = hashlib.sha256(password.encode()).hexdigest()
+    if password_hash != user_data['password_hash']:
+        print("Password errata!")
+        return None
+
+    print(f"Login effettuato per {username}")
+    return True
