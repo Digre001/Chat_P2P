@@ -11,7 +11,7 @@ from cryptography.hazmat.backends import default_backend
 import random
 import time
 
-USER_DATA = 'user_data.json'
+USER_DATA = '../user_data.json'
 
 class UserManager:
     def __init__(self, user_data_file=USER_DATA):
