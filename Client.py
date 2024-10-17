@@ -9,10 +9,20 @@ class Client(DatagramProtocol):
 
         self.id = host, port
         self.address = None 
+        self.server = "127.0.0.1", 9999
         print("Working in id:", self.id)
 
-    def datagramReceived(self, datagram, addr) -> None:
-        print(addr, ":", datagram)
+    def startProtocol(self):
+        self.transport.write("ready".encode('utf-8'), self.server)
+
+    def datagramReceived(self, datagram, addr):
+        datagram = datagram.decode('utf-8')
+        if addr == self.server:
+            print("Setting address\n", datagram)
+            self.address = input("Choose an address from the list: "), int(input("Choose a port from the list: "))
+            reactor.callInThread(self.send_message)
+        else:
+            print(addr, ":", datagram)
     
     def send_message(self):
         while True: 
