@@ -29,35 +29,25 @@ class LoginApp(QWidget):
         self.login_button.clicked.connect(self.login_user)
         layout.addWidget(self.login_button)
 
-        self.register_button = QPushButton("Registrati")
-        self.register_button.clicked.connect(self.register_user)
-        layout.addWidget(self.register_button)
-
         self.setLayout(layout)
         self.setWindowTitle("Login")
 
     def login_user(self):
         username = self.username_field.text()
         password = self.password_field.text()
-        ip_address = socket.gethostbyname(socket.gethostname())  # Get local IP address
-        success, msg = self.user_manager.login_user(username, password, ip_address)
-        
+        success, msg = self.user_manager.login_user(username, password)
+
         if success:
-            self.peer_network.start()  # Start the peer network after login
+            self.peer_network.start(username)  # Pass the username to start the network
             self.open_message_app(username)
         else:
-            QMessageBox.warning(self, "Errore", msg)
-
-    def register_user(self):
-        username = self.username_field.text()
-        password = self.password_field.text()
-        success, msg = self.user_manager.register_user(username, password)
-        QMessageBox.information(self, "Registrazione", msg)
+            QMessageBox.warning(self, "Error", msg)
 
     def open_message_app(self, username):
         self.message_app = MessageApp(username, self.user_manager, self.peer_network)
         self.message_app.show()
         self.close()
+
 
 # Message Window Class
 class MessageApp(QWidget):
@@ -71,23 +61,23 @@ class MessageApp(QWidget):
     def init_ui(self):
         layout = QVBoxLayout()
 
-        self.label_user = QLabel(f"Benvenuto, {self.username}!")
+        self.label_user = QLabel(f"Welcome, {self.username}!")
         layout.addWidget(self.label_user)
 
         self.received_messages = QTextEdit()
-        self.received_messages.setPlaceholderText("Ricevi messaggi qui...")
+        self.received_messages.setPlaceholderText("Receive messages here...")
         self.received_messages.setReadOnly(True)
         layout.addWidget(self.received_messages)
 
         self.input_message = QLineEdit()
-        self.input_message.setPlaceholderText("Scrivi un messaggio...")
+        self.input_message.setPlaceholderText("Write a message...")
         layout.addWidget(self.input_message)
 
-        self.send_button = QPushButton("Invia")
+        self.send_button = QPushButton("Send")
         self.send_button.clicked.connect(self.send_message)
         layout.addWidget(self.send_button)
 
-        self.connected_users_label = QLabel("Dispositivi connessi:")
+        self.connected_users_label = QLabel("Connected Devices:")
         layout.addWidget(self.connected_users_label)
 
         self.connected_users_display = QTextEdit()
@@ -95,8 +85,8 @@ class MessageApp(QWidget):
         layout.addWidget(self.connected_users_display)
 
         self.setLayout(layout)
-        self.setWindowTitle("Messaggi")
-        
+        self.setWindowTitle("Messages")
+
         self.update_connected_users()  # Show connected users at start
 
         # Start a timer to update the connected users display every second
@@ -111,9 +101,9 @@ class MessageApp(QWidget):
             self.input_message.clear()
 
     def update_connected_users(self):
-        connected_ips = self.peer_network.get_connected_ips()
-        ip_list = "\n".join(connected_ips)  # Display the list of connected IPs
-        self.connected_users_display.setPlainText(ip_list)
+        connected_users_info = self.peer_network.get_connected_ips()  # Should return a dictionary now
+        user_list = "\n".join([f"{ip}: {username}" for ip, username in connected_users_info.items()])  # Create display string
+        self.connected_users_display.setPlainText(user_list)
 
 # Starting the application
 if __name__ == '__main__':
