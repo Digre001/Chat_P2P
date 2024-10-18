@@ -3,20 +3,20 @@ import json
 import hashlib
 import socket
 import threading
-from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout, QMessageBox, QSpacerItem, QSizePolicy, QTextEdit
-from PyQt5.QtCore import Qt, QTimer
+import time
+from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout, QTextEdit, QMessageBox
+from PyQt5.QtCore import Qt
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.backends import default_backend
 import random
-import time
 
 USER_DATA = 'user_data2.json'
-BROADCAST_IP = "192.168.178.255"  # Indirizzo broadcast 192.168.178.255
+BROADCAST_IP = "172.20.10.15"  # Indirizzo broadcast
 PORT = 5000  # Porta UDP usata per la comunicazione
 BUFFER_SIZE = 1024
 PEER_TIMEOUT = 10  # Timeout per considerare un peer offline
-PEER_LIST = {}  # Dizionario per tracciare i peer attivi e l'ultimo tempo in cui sono stati visti
+PEER_LIST = {}  # Dizionario che terrà traccia degli altri peer e del loro timestamp
 
 class UserManager:
     def __init__(self, user_data_file=USER_DATA):
@@ -55,7 +55,7 @@ class UserManager:
                 'password': password_hash,
                 'private_key': private_key_bytes.decode(),
                 'public_key': public_key.decode(),
-                'status': 'inactive'  # Lo stato è inattivo dopo la registrazione
+                'status': 'inactive'
             }
             self.save_users(users)
             return True, f"Registrazione completata per {username}"
@@ -67,7 +67,7 @@ class UserManager:
         password_hash = hashlib.sha256(password.encode()).hexdigest()
         if password_hash != users[username]['password']:
             return False, "Password errata!"
-        users[username]['status'] = 'active'  # Cambia lo stato in attivo al login
+        users[username]['status'] = 'active'
         self.save_users(users)
         return True, f"Accesso effettuato per {username}!"
 
@@ -97,13 +97,12 @@ class ChatWindow(QWidget):
         self.username = username
         self.user_manager = user_manager
 
-        # Usa una porta casuale per evitare conflitti sulla stessa macchina
-        self.port = random.randint(5001, 6000)  # Porta casuale tra 5001 e 6000
-
+        self.port = random.randint(5001, 6000)
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)  # Abilita il broadcast
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        self.sock.bind(('0.0.0.0', self.port))
 
-        self.sock.bind(('0.0.0.0', self.port))  # Ascolta sulla porta assegnata
+        self.active_users = set()  # Set per tenere traccia degli utenti attivi
         self.init_ui()
         self.start_receiving()
         self.start_broadcasting()
@@ -141,7 +140,7 @@ class ChatWindow(QWidget):
         elif message:
             full_message = f"{self.username}: {message}"
             self.chat_display.append(full_message)
-            self.sock.sendto(full_message.encode(), ('<broadcast>', self.port))  # Invia a tutti
+            self.sock.sendto(full_message.encode(), ('<broadcast>', self.port))
         self.message_input.clear()
 
     def start_receiving(self):
@@ -154,9 +153,8 @@ class ChatWindow(QWidget):
     def broadcast_presence(self):
         while True:
             try:
-                # Invia un messaggio che include il nome utente e lo stato
                 message = f"{self.username}:active"
-                self.sock.sendto(message.encode(), (BROADCAST_IP, self.port))
+                self.sock.sendto(message.encode(), (BROADCAST_IP, PORT))
                 time.sleep(5)
             except Exception as e:
                 print(f"Errore invio broadcast: {e}")
@@ -164,45 +162,45 @@ class ChatWindow(QWidget):
 
     def receive_messages(self):
         while True:
-            data, addr = self.sock.recvfrom(BUFFER_SIZE)
-            message = data.decode()
+            try:
+                data, addr = self.sock.recvfrom(BUFFER_SIZE)
+                message = data.decode()
 
-            # Parsing del messaggio per ottenere l'utente e lo stato
-            if ":" in message:
-                user, status = message.split(":")
-                if status == "active":
-                    PEER_LIST[addr[0]] = time.time()  # Aggiorna il tempo di avvistamento
-                    self.active_users.add(user)  # Aggiungi l'utente alla lista degli utenti attivi
-                    self.update_active_users_display()
-                elif status == "inactive":
-                    if user in self.active_users:
+                if ":" in message:
+                    user, status = message.split(":")
+                    if status == "active":
+                        PEER_LIST[addr[0]] = time.time()
+                        self.active_users.add(user)
+                        self.update_active_users_display()
+                    elif status == "inactive" and user in self.active_users:
                         self.active_users.remove(user)
                         self.update_active_users_display()
 
-            self.chat_display.append(message)
+                self.chat_display.append(message)
+            except Exception as e:
+                print(f"Errore ricezione messaggio: {e}")
+                break
 
     def check_peer_timeout(self):
         while True:
             current_time = time.time()
             for peer_ip, last_seen in list(PEER_LIST.items()):
-                if current_time - last_seen > PEER_TIMEOUT:  # Se è passato troppo tempo dall'ultimo avvistamento
+                if current_time - last_seen > PEER_TIMEOUT:
                     del PEER_LIST[peer_ip]
                     self.user_manager.update_peer_status(peer_ip, 'inactive')
             time.sleep(5)
 
     def update_active_users_display(self):
-        # Aggiorna la visualizzazione degli utenti attivi nell'interfaccia
         if self.active_users:
             self.active_users_display.setText(f"Utenti attivi: {', '.join(self.active_users)}")
         else:
             self.active_users_display.setText("Utenti attivi: Nessuno")
 
     def closeEvent(self, event):
-        # Imposta lo stato su inattivo alla chiusura e manda il messaggio di disconnessione
         self.user_manager.update_user_status(self.username, 'inactive')
         message = f"{self.username}:inactive"
-        self.sock.sendto(message.encode(), (BROADCAST_IP, self.port))
-        self.sock.close()  # Assicurati di chiudere il socket
+        self.sock.sendto(message.encode(), (BROADCAST_IP, PORT))
+        self.sock.close()
         event.accept()
 
 
@@ -226,47 +224,45 @@ class LoginApp(QWidget):
         self.entry_password.setEchoMode(QLineEdit.Password)
         layout.addWidget(self.entry_password)
 
-        spacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
-        layout.addItem(spacer)
-
-        self.btn_login = QPushButton("Login")  # Prima login
+        self.btn_login = QPushButton("Login")
         self.btn_login.clicked.connect(self.login_user)
         layout.addWidget(self.btn_login)
 
-        self.btn_register = QPushButton("Registrati")  # Poi registrati
+        self.btn_register = QPushButton("Registrati")
         self.btn_register.clicked.connect(self.register_user)
         layout.addWidget(self.btn_register)
 
         self.setLayout(layout)
-        self.setWindowTitle("Login System")
-
-    def register_user(self):
-        username = self.entry_username.text()
-        password = self.entry_password.text()
-
-        if not username or not password:
-            QMessageBox.warning(self, "Errore", "Inserisci almeno un carattere per nome utente e password!")
-            return
-
-        success, msg = self.user_manager.register_user(username, password)
-        QMessageBox.information(self, "Registrazione", msg)
+        self.setWindowTitle("Login")
+        self.setGeometry(100, 100, 300, 200)
 
     def login_user(self):
         username = self.entry_username.text()
         password = self.entry_password.text()
-        success, msg = self.user_manager.login_user(username, password)
+        success, message = self.user_manager.login_user(username, password)
         if success:
-            QMessageBox.information(self, "Login", msg)
-            self.chat_window = ChatWindow(username, self.user_manager)
-            self.chat_window.show()
-            self.hide()
+            self.open_chat(username)
         else:
-            QMessageBox.warning(self, "Errore", msg)
+            QMessageBox.warning(self, "Errore di login", message)
+
+    def register_user(self):
+        username = self.entry_username.text()
+        password = self.entry_password.text()
+        success, message = self.user_manager.register_user(username, password)
+        if success:
+            QMessageBox.information(self, "Registrazione completata", message)
+        else:
+            QMessageBox.warning(self, "Errore di registrazione", message)
+
+    def open_chat(self, username):
+        self.chat_window = ChatWindow(username, self.user_manager)
+        self.chat_window.show()
+        self.close()
 
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     user_manager = UserManager()
-    window = LoginApp(user_manager)
-    window.show()
+    login_window = LoginApp(user_manager)
+    login_window.show()
     sys.exit(app.exec_())
