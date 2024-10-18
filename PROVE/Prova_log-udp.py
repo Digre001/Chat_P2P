@@ -55,7 +55,8 @@ class UserManager:
                 'password': password_hash,
                 'private_key': private_key_bytes.decode(),
                 'public_key': public_key.decode(),
-                'status': 'inactive'
+                'status': 'inactive',
+                'ip_address': None
             }
             self.save_users(users)
             return True, f"Registrazione completata per {username}"
@@ -67,14 +68,14 @@ class UserManager:
         password_hash = hashlib.sha256(password.encode()).hexdigest()
         if password_hash != users[username]['password']:
             return False, "Password errata!"
-        users[username]['status'] = 'active'
-        self.save_users(users)
         return True, f"Accesso effettuato per {username}!"
 
-    def update_user_status(self, username, status):
+    def update_user_status(self, username, status, ip_address=None):
         users = self.load_users()
         if username in users:
             users[username]['status'] = status
+            if ip_address:
+                users[username]['ip_address'] = ip_address
             self.save_users(users)
 
     def get_active_users(self):
@@ -153,6 +154,9 @@ class ChatWindow(QWidget):
     def broadcast_presence(self):
         while True:
             try:
+                # Aggiorna lo stato utente nel file JSON
+                self.user_manager.update_user_status(self.username, 'active', socket.gethostbyname(socket.gethostname()))
+
                 message = f"{self.username}:active"
                 self.sock.sendto(message.encode(), (BROADCAST_IP, PORT))
                 time.sleep(5)
@@ -171,9 +175,17 @@ class ChatWindow(QWidget):
                     if status == "active":
                         PEER_LIST[addr[0]] = time.time()
                         self.active_users.add(user)
+
+                        # Aggiorna il file JSON per lo stato del peer ricevuto
+                        self.user_manager.update_user_status(user, 'active', addr[0])
+
                         self.update_active_users_display()
                     elif status == "inactive" and user in self.active_users:
                         self.active_users.remove(user)
+
+                        # Aggiorna lo stato come inattivo nel file JSON
+                        self.user_manager.update_user_status(user, 'inactive', addr[0])
+
                         self.update_active_users_display()
 
                 self.chat_display.append(message)
@@ -197,11 +209,9 @@ class ChatWindow(QWidget):
             self.active_users_display.setText("Utenti attivi: Nessuno")
 
     def closeEvent(self, event):
+        # Imposta l'utente come inattivo nel file JSON
         self.user_manager.update_user_status(self.username, 'inactive')
-        message = f"{self.username}:inactive"
-        self.sock.sendto(message.encode(), (BROADCAST_IP, PORT))
-        self.sock.close()
-        event.accept()
+        super().closeEvent(event)
 
 
 class LoginApp(QWidget):
@@ -211,15 +221,20 @@ class LoginApp(QWidget):
         self.init_ui()
 
     def init_ui(self):
+        self.setWindowTitle("Login")
+        self.setGeometry(100, 100, 300, 200)
+
         layout = QVBoxLayout()
 
         self.label_username = QLabel("Username:")
         layout.addWidget(self.label_username)
+
         self.entry_username = QLineEdit()
         layout.addWidget(self.entry_username)
 
         self.label_password = QLabel("Password:")
         layout.addWidget(self.label_password)
+
         self.entry_password = QLineEdit()
         self.entry_password.setEchoMode(QLineEdit.Password)
         layout.addWidget(self.entry_password)
@@ -233,8 +248,6 @@ class LoginApp(QWidget):
         layout.addWidget(self.btn_register)
 
         self.setLayout(layout)
-        self.setWindowTitle("Login")
-        self.setGeometry(100, 100, 300, 200)
 
     def login_user(self):
         username = self.entry_username.text()
