@@ -1,11 +1,11 @@
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QLineEdit, QPushButton, QMessageBox, QSpacerItem, QSizePolicy
-from chat_window import ChatWindow
+from Codici.chat_window import ChatWindow  # Modifica l'import per riflettere la struttura delle cartelle
 
 class LoginApp(QWidget):
     def __init__(self, user_manager):
         super().__init__()
         self.user_manager = user_manager
-        self.init_ui()  # Assicurati di chiamare init_ui qui
+        self.init_ui()
 
     def init_ui(self):
         layout = QVBoxLayout()
@@ -20,6 +20,9 @@ class LoginApp(QWidget):
         self.entry_password = QLineEdit()
         self.entry_password.setEchoMode(QLineEdit.Password)
         layout.addWidget(self.entry_password)
+
+        # Connetti il tasto "Invio" al metodo di login
+        self.entry_password.returnPressed.connect(self.login_user)
 
         spacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
         layout.addItem(spacer)
