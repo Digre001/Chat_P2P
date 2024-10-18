@@ -12,10 +12,10 @@ from cryptography.hazmat.backends import default_backend
 import random
 
 USER_DATA = 'user_data2.json'
-BROADCAST_IP = "172.20.10.15"  # Indirizzo broadcast
+BROADCAST_IP = "192.168.111.255"  # Indirizzo broadcast
 PORT = 5000  # Porta UDP usata per la comunicazione
 BUFFER_SIZE = 1024
-PEER_TIMEOUT = 10  # Timeout per considerare un peer offline
+PEER_TIMEOUT = 15  # Timeout per considerare un peer offline
 PEER_LIST = {}  # Dizionario che terrà traccia degli altri peer e del loro timestamp
 
 class UserManager:
