@@ -3,7 +3,7 @@ import threading
 import time
 
 # Configurazione
-BROADCAST_IP = "127.0.0.1"  # Indirizzo broadcast
+BROADCAST_IP = "192.168.178.255"  # Indirizzo broadcast 127.0.0.1
 PORT = 5000  # Porta UDP usata per la comunicazione
 BUFFER_SIZE = 1024
 PEER_LIST = set()  # Insieme che terrà traccia degli altri peer
