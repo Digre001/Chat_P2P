@@ -11,7 +11,7 @@ from cryptography.hazmat.backends import default_backend
 import random
 import time
 
-USER_DATA = 'user_data.json'
+USER_DATA = 'user_data2.json'
 BROADCAST_IP = "192.168.178.255"  # Indirizzo broadcast
 PORT = 5000  # Porta UDP usata per la comunicazione
 BUFFER_SIZE = 1024
