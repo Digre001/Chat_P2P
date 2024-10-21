@@ -96,16 +96,3 @@ class PeerNetwork:
     def get_connected_ips(self):
         return self.connected_ips  # Returns the dictionary of IPs and usernames
 
-
-# Esempio di utilizzo della classe
-if __name__ == "__main__":
-    peer_network = PeerNetwork()
-    peer_network.start()
-
-    try:
-        while True:
-            time.sleep(1)
-            # Stampa la lista aggiornata degli IP connessi
-            print(f"Dispositivi connessi: {peer_network.get_connected_ips()}")
-    except KeyboardInterrupt:
-        peer_network.stop()

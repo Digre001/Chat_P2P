@@ -28,8 +28,3 @@ class UserManager:
 
     def get_connected_users(self):
         return {user: info for user, info in self.users.items() if info['status'] == 'online'}
-
-# Example usage
-if __name__ == "__main__":
-    user_manager = UserManager()
-    print(user_manager.get_connected_users())  # For testing purposes
