@@ -1,8 +1,20 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout, QTextEdit, QMessageBox
 from user_manager import UserManager
-from PyQt5.QtCore import QTimer
+from PyQt5.QtCore import QTimer, QThread, pyqtSignal
 from udp_discovery import PeerNetwork  # Assuming PeerNetwork is in peer_network.py
+
+# Worker class for receiving messages asynchronously
+class MessageReceiver(QThread):
+    message_received = pyqtSignal(str)  # Signal emitted when a message is received
+
+    def __init__(self, peer_network, parent=None):
+        super().__init__(parent)
+        self.peer_network = peer_network
+
+    def run(self):
+        # Start the peer network TCP server to listen for messages
+        self.peer_network.start_peer_server(5001)  # Assuming peers communicate on port 5001
 
 # Login Window Class
 class LoginApp(QWidget):
@@ -57,6 +69,14 @@ class MessageApp(QWidget):
         self.peer_network = peer_network
         self.init_ui()
 
+        # Set up message receiver thread
+        self.message_receiver = MessageReceiver(peer_network)
+        self.message_receiver.message_received.connect(self.receive_message)
+        self.message_receiver.start()
+
+        # Connect the peer network signal to the receive_message function
+        self.peer_network.message_received_signal.connect(self.receive_message)
+
     def init_ui(self):
         layout = QVBoxLayout()
 
@@ -97,12 +117,23 @@ class MessageApp(QWidget):
         message = self.input_message.text()
         if message:
             self.received_messages.append(f"{self.username}: {message}")
+
+            # Send message to all connected peers
+            connected_users = self.peer_network.get_connected_ips()  # Dictionary of connected IPs and usernames
+            for ip, _ in connected_users.items():
+                self.peer_network.send_message(ip, 5001, f"{self.username}: {message}")  # Send message over TCP
+            
             self.input_message.clear()
+
+    def receive_message(self, message):
+        """Slot called when a new message is received."""
+        self.received_messages.append(f"{message}")  # Display the received message in the text edit
 
     def update_connected_users(self):
         connected_users_info = self.peer_network.get_connected_ips()  # Should return a dictionary now
         user_list = "\n".join([f"{ip}: {username}" for ip, username in connected_users_info.items()])  # Create display string
         self.connected_users_display.setPlainText(user_list)
+
 
 # Starting the application
 if __name__ == '__main__':
