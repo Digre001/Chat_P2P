@@ -171,19 +171,16 @@ class MessageApp(QWidget):
         user_list = "\n".join([f"{ip}: {username}" for ip, username in connected_users_info.items()])
         self.connected_users_display.setPlainText(user_list)
 
-# Finestra per chat privata o di gruppo
 class PrivateChatWindow(QWidget):
     def __init__(self, username, target_users, peer_network):
         super().__init__()
         self.username = username
-        self.target_users = target_users  # Può essere un singolo utente o un gruppo
+        self.target_users = target_users  # lista degli utenti destinatari
         self.peer_network = peer_network
         self.init_ui()
 
     def init_ui(self):
         layout = QVBoxLayout()
-
-        # Mostra l'utente o il gruppo con cui si sta chattando
         if len(self.target_users) == 1:
             chat_with = self.target_users[0]
             self.setWindowTitle(f"Private Chat with {chat_with}")
@@ -210,17 +207,14 @@ class PrivateChatWindow(QWidget):
         message = self.input_message.text()
         if message:
             self.received_messages.append(f"{self.username}: {message}")
-
-            # Invia il messaggio solo agli utenti specificati nella chat privata o di gruppo
             for target_username in self.target_users:
                 ip = self.peer_network.get_ip_by_username(target_username)
                 if ip:
-                    self.peer_network.send_message(ip, 5001, f"{self.username}: {message}")
-            
+                    private_message = f"PRIVATE_MESSAGE|{self.username}|{message}"
+                    self.peer_network.send_message(ip, 5001, private_message)
             self.input_message.clear()
 
     def receive_message(self, message):
-        """Aggiorna la finestra con nuovi messaggi."""
         self.received_messages.append(message)
 
 # Finestra principale per i messaggi
@@ -280,30 +274,40 @@ class MessageApp(QWidget):
     def send_message(self):
         message = self.input_message.text()
         if message:
-            # Controlla se il messaggio è un comando per un utente specifico o un gruppo
-            direct_message_match = re.match(r'^!(\w+)', message)
-            group_message_match = re.match(r'^!!\(([\w, ]+)\)', message)
-
+            direct_message_match = re.match(r'^!(\w+)', message)  # comando privato
             if direct_message_match:
-                # Chat privata con un singolo utente
+                # Nome utente del destinatario
                 target_username = direct_message_match.group(1)
+                # Apri la finestra di chat privata localmente
                 self.open_private_chat(target_username)
-            elif group_message_match:
-                # Chat di gruppo
-                target_usernames = [name.strip() for name in group_message_match.group(1).split(',')]
-                self.open_group_chat(target_usernames)
+                # Manda una richiesta al destinatario di aprire la finestra
+                ip = self.peer_network.get_ip_by_username(target_username)
+                if ip:
+                    private_message = f"PRIVATE_CHAT_REQUEST|{self.username}"
+                    self.peer_network.send_message(ip, 5001, private_message)
             else:
-                # Se non è specificato alcun comando, invia il messaggio a tutti i peer
+                # Invia il messaggio a tutti i peer se non è privato
                 self.received_messages.append(f"{self.username}: {message}")
-                connected_users = self.peer_network.get_connected_ips()  # Dizionario di IP collegati e nomi utenti
-                for ip, _ in connected_users.items():
+                for ip, _ in self.peer_network.get_connected_ips().items():
                     self.peer_network.send_message(ip, 5001, f"{self.username}: {message}")
-        
+            
             self.input_message.clear()
 
+
     def receive_message(self, message):
-        """Riceve i messaggi e li mostra nella finestra principale."""
-        self.received_messages.append(f"{message}")
+        if message.startswith("PRIVATE_CHAT_REQUEST|"):
+            requester_username = message.split("|")[1]
+            self.open_private_chat(requester_username)
+        elif message.startswith("PRIVATE_MESSAGE|"):
+            _, sender_username, msg_content = message.split("|", 2)
+            if sender_username in self.private_chats:
+                self.private_chats[sender_username].receive_message(f"{sender_username}: {msg_content}")
+            else:
+                # Se la finestra privata non esiste, creala
+                self.open_private_chat(sender_username)
+                self.private_chats[sender_username].receive_message(f"{sender_username}: {msg_content}")
+        else:
+            self.received_messages.append(message)
 
     def open_private_chat(self, target_username):
         """Apre una finestra di chat privata con un utente."""
