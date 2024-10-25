@@ -274,40 +274,65 @@ class MessageApp(QWidget):
     def send_message(self):
         message = self.input_message.text()
         if message:
-            direct_message_match = re.match(r'^!(\w+)', message)  # comando privato
+            # Comando per la chat privata (es. `!utente`)
+            direct_message_match = re.match(r'^!(\w+)', message)
+            # Comando per la chat di gruppo (es. `!gruppo utente1,utente2`)
+            group_message_match = re.match(r'^!gruppo\s+([\w,]+)', message)
+            
             if direct_message_match:
-                # Nome utente del destinatario
+                # Chat privata con un singolo utente
                 target_username = direct_message_match.group(1)
-                # Apri la finestra di chat privata localmente
                 self.open_private_chat(target_username)
-                # Manda una richiesta al destinatario di aprire la finestra
                 ip = self.peer_network.get_ip_by_username(target_username)
                 if ip:
                     private_message = f"PRIVATE_CHAT_REQUEST|{self.username}"
                     self.peer_network.send_message(ip, 5001, private_message)
+
+            elif group_message_match:
+                # Chat di gruppo con più utenti
+                target_users = group_message_match.group(1).split(",")
+                self.open_group_chat(target_users)
+                for target_username in target_users:
+                    ip = self.peer_network.get_ip_by_username(target_username)
+                    if ip:
+                        group_request = f"GROUP_CHAT_REQUEST|{self.username}|{','.join(target_users)}"
+                        self.peer_network.send_message(ip, 5001, group_request)
+            
             else:
-                # Invia il messaggio a tutti i peer se non è privato
+                # Messaggio pubblico
                 self.received_messages.append(f"{self.username}: {message}")
                 for ip, _ in self.peer_network.get_connected_ips().items():
                     self.peer_network.send_message(ip, 5001, f"{self.username}: {message}")
-            
-            self.input_message.clear()
 
+            self.input_message.clear()
 
     def receive_message(self, message):
         if message.startswith("PRIVATE_CHAT_REQUEST|"):
             requester_username = message.split("|")[1]
             self.open_private_chat(requester_username)
+        elif message.startswith("GROUP_CHAT_REQUEST|"):
+            _, requester_username, group_usernames = message.split("|", 2)
+            group_users = group_usernames.split(",")
+            if requester_username not in group_users:
+                group_users.append(requester_username)
+            self.open_group_chat(group_users)
+        elif message.startswith("GROUP_MESSAGE|"):
+            # Messaggio di gruppo
+            _, sender_username, msg_content = message.split("|", 2)
+            for group_chat in self.group_chats.values():
+                if sender_username in group_chat.group_users:
+                    group_chat.receive_message(f"{sender_username}: {msg_content}")
+                    break
         elif message.startswith("PRIVATE_MESSAGE|"):
             _, sender_username, msg_content = message.split("|", 2)
             if sender_username in self.private_chats:
                 self.private_chats[sender_username].receive_message(f"{sender_username}: {msg_content}")
             else:
-                # Se la finestra privata non esiste, creala
                 self.open_private_chat(sender_username)
                 self.private_chats[sender_username].receive_message(f"{sender_username}: {msg_content}")
         else:
             self.received_messages.append(message)
+
 
     def open_private_chat(self, target_username):
         """Apre una finestra di chat privata con un utente."""
@@ -337,6 +362,49 @@ class MessageApp(QWidget):
         connected_users_info = self.peer_network.get_connected_ips()
         user_list = "\n".join([f"{ip}: {username}" for ip, username in connected_users_info.items()])
         self.connected_users_display.setPlainText(user_list)
+
+class GroupChatWindow(QWidget):
+    def __init__(self, username, group_users, peer_network):
+        super().__init__()
+        self.username = username
+        self.group_users = group_users  # lista degli utenti del gruppo
+        self.peer_network = peer_network
+        self.init_ui()
+
+    def init_ui(self):
+        layout = QVBoxLayout()
+        group_title = ", ".join(self.group_users)
+        self.setWindowTitle(f"Group Chat with {group_title}")
+
+        self.received_messages = QTextEdit()
+        self.received_messages.setPlaceholderText("Receive messages here...")
+        self.received_messages.setReadOnly(True)
+        layout.addWidget(self.received_messages)
+
+        self.input_message = QLineEdit()
+        self.input_message.setPlaceholderText("Write a message...")
+        layout.addWidget(self.input_message)
+
+        self.send_button = QPushButton("Send")
+        self.send_button.clicked.connect(self.send_message)
+        layout.addWidget(self.send_button)
+
+        self.setLayout(layout)
+
+    def send_message(self):
+        message = self.input_message.text()
+        if message:
+            self.received_messages.append(f"{self.username}: {message}")
+            for target_username in self.group_users:
+                ip = self.peer_network.get_ip_by_username(target_username)
+                if ip:
+                    group_message = f"GROUP_MESSAGE|{self.username}|{message}"
+                    self.peer_network.send_message(ip, 5001, group_message)
+            self.input_message.clear()
+
+    def receive_message(self, message):
+        self.received_messages.append(message)
+
 
 # Starting the application
 if __name__ == '__main__':
