@@ -96,6 +96,13 @@ class PeerNetwork(QObject):
         self.running = False
         print("Stopping P2P network...")
 
+    def get_ip_by_username(self, username):
+        """Restituisce l'indirizzo IP associato al nome utente."""
+        for ip, user in self.connected_ips.items():
+            if user == username:
+                return ip
+        return None  # Restituisce None se l'utente non è trovato
+
     # Function to get connected IPs
     def get_connected_ips(self):
         return self.connected_ips  # Return the dictionary of connected IPs and usernames
