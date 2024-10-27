@@ -216,7 +216,6 @@ class MessageApp(QWidget):
             
             else:
                 # Messaggio pubblico
-                self.received_messages.append(f"{self.username}: {message}")
                 for ip, _ in self.peer_network.get_connected_ips().items():
                     self.peer_network.send_message(ip, 5001, f"{self.username}: {message}")
 
