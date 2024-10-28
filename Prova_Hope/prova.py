@@ -3,7 +3,7 @@ import re
 from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout, QTextEdit, QMessageBox, QSpacerItem, QSizePolicy
 from user_manager import UserManager
 from PyQt5.QtCore import QTimer, QThread, pyqtSignal
-from udp_discovery import PeerNetwork  # Assuming PeerNetwork is in peer_network.py
+from udp_discovery import PeerNetwork 
 
 # Worker class for receiving messages asynchronously
 class MessageReceiver(QThread):
