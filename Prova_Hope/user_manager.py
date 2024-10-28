@@ -46,7 +46,6 @@ class UserManager:
             'password': password_hash,
             'private_key': private_key_bytes.decode(),
             'public_key': public_key.decode(),
-            'status': 'offline'  # Default status
         }
         self.save_users()
         return True, f"Registrazione completata per {username}"
