@@ -61,11 +61,9 @@ class UserManager:
         return True, f"Accesso effettuato per {username}!"
 
     def logout_user(self, username):
-        if username in self.users and self.users[username]['status'] == 'online':
-            self.users[username]['status'] = 'offline'
-            self.save_users()
+        if username in self.users:
             return True, f"Logout effettuato per {username}"
-        return False, "Utente non connesso o inesistente"
+        return False, "Utente inesistente"
 
     def get_connected_users(self):
         return {user: info for user, info in self.users.items() if info['status'] == 'online'}
