@@ -193,7 +193,7 @@ class MessageApp(QWidget):
             # Comando per la chat privata (es. `!utente`)
             direct_message_match = re.match(r'^!(\w+)', message)
             # Comando per la chat di gruppo (es. `!gruppo utente1,utente2`)
-            group_message_match = re.match(r'^!gruppo\s+([\w,]+)', message)
+            group_message_match = re.match(r'^!!\s+([\w,]+)', message)
             
             if direct_message_match:
                 # Chat privata con un singolo utente
