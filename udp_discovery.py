@@ -7,7 +7,7 @@ class PeerNetwork(QObject):
     # Signal to communicate the received message to the UI
     message_received_signal = pyqtSignal(str)  # Emitted when a new message is received
 
-    def __init__(self, broadcast_ip="192.168.98.16", port=5000, buffer_size=1024, peer_timeout=10):
+    def __init__(self, broadcast_ip="192.168.1.255", port=5000, buffer_size=1024, peer_timeout=10):
         super().__init__()  # Necessary for QObject initialization
         self.BROADCAST_IP = broadcast_ip
         self.PORT = port
@@ -127,7 +127,13 @@ class PeerNetwork(QObject):
                 if not message:
                     break
                 print(f"Message received: {message}")
-                
+                if message.startswith("CHAT_CLOSED|"):
+                    chat_id = message.split("|", 1)[1]
+                    print(f"Chat {chat_id} has been closed and will be marked as inactive.")
+                elif message.startswith("DISCONNECT|"):
+                    chat_id = message.split("|", 1)[1]
+                    print(f"Chat {chat_id} has been closed by the peer.")
+
                 # Emit the signal to update the UI with the new message
                 self.message_received_signal.emit(message)
         except Exception as e:
@@ -145,3 +151,17 @@ class PeerNetwork(QObject):
             print(f"Error sending message: {e}")
         finally:
             client_socket.close()
+
+
+    def send_chat_closed_notification(self, chat_id):
+        """Sends a notification indicating that a specific chat window was closed."""
+        message = f"CHAT_CLOSED|{chat_id}"
+        for ip, _ in self.connected_ips.items():
+            self.send_message(ip, 5001, message)
+
+    def send_disconnection_notification(self, chat_id):
+        """Sends a message to indicate that a chat window was closed."""
+        # Broadcast to all peers that this chat is closed
+        message = f"DISCONNECT|{chat_id}"
+        for ip, _ in self.connected_ips.items():
+            self.send_message(ip, 5001, message)

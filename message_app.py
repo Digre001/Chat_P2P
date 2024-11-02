@@ -11,6 +11,7 @@ class MessageApp(QWidget):
         self.user_manager = user_manager
         self.peer_network = peer_network
         self.private_chats = {}  # Dizionario per memorizzare le finestre di chat private/gruppo
+        self.group_chats = {}  # Dizionario per memorizzare le finestre di chat di gruppo
         self.init_ui()
 
         # Configura il ricevitore di messaggi
@@ -120,7 +121,7 @@ class MessageApp(QWidget):
 
     def open_private_chat(self, target_username):
         """Apre una finestra di chat privata con un utente."""
-        if target_username not in self.private_chats:
+        if target_username not in self.private_chats or not self.private_chats[target_username].isVisible():
             # Se la chat privata non è già aperta, aprila
             private_chat = PrivateChatWindow(self.username, [target_username], self.peer_network)
             private_chat.show()
@@ -132,9 +133,9 @@ class MessageApp(QWidget):
     def open_group_chat(self, target_usernames):
         """Apre una finestra di chat di gruppo."""
         group_key = ",".join(sorted(target_usernames))
-        if group_key not in self.private_chats:
+        if group_key not in self.private_chats or not self.private_chats[group_key].isVisible():
             # Se la chat di gruppo non è già aperta, aprila
-            group_chat = PrivateChatWindow(self.username, target_usernames, self.peer_network)
+            group_chat = GroupChatWindow(self.username, target_usernames, self.peer_network)
             group_chat.show()
             self.private_chats[group_key] = group_chat
         else:
