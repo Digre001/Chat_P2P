@@ -1,6 +1,6 @@
 import sys
 from PyQt5.QtWidgets import QApplication
-from udp_discovery import PeerNetwork
+from peernetwork import PeerNetwork
 from user_manager import UserManager
 from login_app import LoginApp
 

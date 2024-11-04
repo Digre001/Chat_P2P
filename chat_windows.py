@@ -1,3 +1,6 @@
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa, padding
+from cryptography.hazmat.primitives import hashes
 from PyQt5.QtWidgets import QWidget, QLineEdit, QPushButton, QVBoxLayout, QTextEdit
 from PyQt5.QtCore import pyqtSignal
 import sqlite3
@@ -45,17 +48,30 @@ class PrivateChatWindow(QWidget):
     def send_message(self):
         message = self.input_message.text()
         if message:
-            # Salva il messaggio nel database
             for target_username in self.target_users:
-                save_message_to_db(self.username, target_username, message)
+                # Load recipient's public key
+                public_key_str, _ = load_user_keys(target_username)
+                if public_key_str:
+                    # Load public key
+                    public_key = serialization.load_pem_public_key(public_key_str.encode())
 
-            #invia il messaggio
-            self.received_messages.append(f"{self.username}: {message}")
-            for target_username in self.target_users:
-                ip = self.peer_network.get_ip_by_username(target_username)
-                if ip:
-                    private_message = f"PRIVATE_MESSAGE|{self.username}|{message}"
-                    self.peer_network.send_message(ip, 5001, private_message)
+                    # Encrypt the message
+                    encrypted_message = public_key.encrypt(
+                        message.encode(),
+                        padding.OAEP(
+                            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                            algorithm=hashes.SHA256(),
+                            label=None
+                        )
+                    )
+                    # Send the encrypted message
+                    private_message = f"PRIVATE_MESSAGE|{self.username}|{encrypted_message.hex()}"
+                    ip = self.peer_network.get_ip_by_username(target_username)
+                    if ip:
+                        self.peer_network.send_message(ip, 5001, private_message)
+                        # Save the message to the database
+                        save_message_to_db(self.username, target_username, message)
+
             self.input_message.clear()
 
     def closeEvent(self, event):
@@ -63,7 +79,26 @@ class PrivateChatWindow(QWidget):
         event.accept()
 
     def receive_message(self, message):
-        self.received_messages.append(message)
+        if message.startswith("PRIVATE_MESSAGE|"):
+            _, sender_username, encrypted_content = message.split("|", 2)
+            # Load this user's private key
+            _, private_key_str = load_user_keys(self.username)
+            if private_key_str:
+                # Load private key
+                private_key = serialization.load_pem_private_key(private_key_str.encode(), password=None)
+
+                # Decrypt the message
+                encrypted_message = bytes.fromhex(encrypted_content)
+                decrypted_message = private_key.decrypt(
+                    encrypted_message,
+                    padding.OAEP(
+                        mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                        algorithm=hashes.SHA256(),
+                        label=None
+                    )
+                ).decode()
+
+                self.received_messages.append(f"{sender_username}: {decrypted_message}")
 
 
 class GroupChatWindow(QWidget):
@@ -97,16 +132,53 @@ class GroupChatWindow(QWidget):
     def send_message(self):
         message = self.input_message.text()
         if message:
-            self.received_messages.append(f"{self.username}: {message}")
-            for target_username in self.group_users:
-                ip = self.peer_network.get_ip_by_username(target_username)
-                if ip:
-                    group_message = f"GROUP_MESSAGE|{self.username}|{message}"
-                    self.peer_network.send_message(ip, 5001, group_message)
+            for target_username in self.target_users:
+                # Load recipient's public key
+                public_key_str, _ = load_user_keys(target_username)
+                if public_key_str:
+                    # Load public key
+                    public_key = serialization.load_pem_public_key(public_key_str.encode())
+
+                    # Encrypt the message
+                    encrypted_message = public_key.encrypt(
+                        message.encode(),
+                        padding.OAEP(
+                            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                            algorithm=hashes.SHA256(),
+                            label=None
+                        )
+                    )
+                    # Send the encrypted message
+                    private_message = f"PRIVATE_MESSAGE|{self.username}|{encrypted_message.hex()}"
+                    ip = self.peer_network.get_ip_by_username(target_username)
+                    if ip:
+                        self.peer_network.send_message(ip, 5001, private_message)
+                        # Save the message to the database
+                        save_message_to_db(self.username, target_username, message)
+
             self.input_message.clear()
 
     def receive_message(self, message):
-        self.received_messages.append(message)
+        if message.startswith("PRIVATE_MESSAGE|"):
+            _, sender_username, encrypted_content = message.split("|", 2)
+            # Load this user's private key
+            _, private_key_str = load_user_keys(self.username)
+            if private_key_str:
+                # Load private key
+                private_key = serialization.load_pem_private_key(private_key_str.encode(), password=None)
+
+                # Decrypt the message
+                encrypted_message = bytes.fromhex(encrypted_content)
+                decrypted_message = private_key.decrypt(
+                    encrypted_message,
+                    padding.OAEP(
+                        mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                        algorithm=hashes.SHA256(),
+                        label=None
+                    )
+                ).decode()
+
+                self.received_messages.append(f"{sender_username}: {decrypted_message}")
 
 
 
@@ -165,3 +237,15 @@ def load_messages_from_db(user1, user2):
     messages = cursor.fetchall()
     conn.close()
     return messages
+
+# Funzione per caricare le chiavi RSA dell'utente dal database
+def load_user_keys(username):
+    """Loads the RSA public and private keys for the specified user from the database."""
+    conn = sqlite3.connect('user_data.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT public_key, private_key FROM users WHERE username=?", (username,))
+    result = cursor.fetchone()
+    conn.close()
+    if result:
+        return result[0], result[1]  # Return public_key, private_key
+    return None, None  # If user not found
