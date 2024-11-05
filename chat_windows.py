@@ -195,8 +195,7 @@ class PrivateChatWindow(QWidget):
                 display_message = "[Failed to decrypt message]"
 
             # Append the received message to the chat window
-            timestamp = self.get_current_timestamp()  # Assuming you want to add a timestamp
-            self.received_messages.append(f"{sender} ({timestamp}): {display_message}")
+            self.received_messages.append(f"{sender}: {display_message}")
             
         except ValueError:
             print("Received an invalid message format")
