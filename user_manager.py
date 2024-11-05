@@ -1,7 +1,7 @@
 import requests
 
 class UserManager:
-    BASE_URL = 'http://192.168.178.220:5003'  # Adjust to your API server address
+    BASE_URL = 'http://172.20.10.5:5003'  # Adjust to your API server address
 
     def register_user(self, username, password):
         response = requests.post(f"{self.BASE_URL}/register", json={"username": username, "password": password})

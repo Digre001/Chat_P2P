@@ -1,10 +1,36 @@
+from PyQt5.QtWidgets import QWidget, QLineEdit, QPushButton, QVBoxLayout, QTextEdit
+from PyQt5.QtCore import pyqtSignal
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives import hashes
-from PyQt5.QtWidgets import QWidget, QLineEdit, QPushButton, QVBoxLayout, QTextEdit
-from PyQt5.QtCore import pyqtSignal
 import sqlite3
+import base64 
 
+# Function to retrieve the public key of a specific user from the database
+def get_public_key(username):
+    conn = sqlite3.connect('user_data.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT public_key FROM users WHERE username = ?', (username,))
+    result = cursor.fetchone()
+    conn.close()
+    if result and result[0]:  # Check if the key exists
+        # Load the public key from a PEM-formatted string
+        return serialization.load_pem_public_key(result[0].encode('utf-8'))
+    return None
+
+# Function to retrieve the private key of a specific user from the database
+def get_private_key(username):
+    conn = sqlite3.connect('user_data.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT private_key FROM users WHERE username = ?', (username,))
+    result = cursor.fetchone()
+    conn.close()
+    if result and result[0]:  # Check if the key exists
+        # Load the private key from a PEM-formatted string
+        return serialization.load_pem_private_key(result[0].encode('utf-8'), password=None)
+    return None
+
+# Example usage in your PrivateChatWindow class
 class PrivateChatWindow(QWidget):
 
     closed_signal = pyqtSignal()
@@ -12,11 +38,11 @@ class PrivateChatWindow(QWidget):
     def __init__(self, username, target_users, peer_network):
         super().__init__()
         self.username = username
-        self.target_users = target_users  # lista degli utenti destinatari
+        self.target_users = target_users  # list of target users
         self.peer_network = peer_network
         self.init_ui()
 
-        # Carica i messaggi passati
+        # Load past messages
         self.load_previous_messages()
 
     def init_ui(self):
@@ -42,64 +68,100 @@ class PrivateChatWindow(QWidget):
     def load_previous_messages(self):
         for target_user in self.target_users:
             messages = load_messages_from_db(self.username, target_user)
-            for sender, message, timestamp in messages:
-                self.received_messages.append(f"{sender} ({timestamp}): {message}")
+            for sender, encrypted_message, timestamp in messages:
+                if sender == self.username:
+                    # Already plain text for sent messages
+                    display_message = encrypted_message
+                else:
+                    # Decrypt the received message
+                    private_key = get_private_key(self.username)
+                    try:
+                        decrypted_message = private_key.decrypt(
+                            encrypted_message,
+                            padding.OAEP(
+                                mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                                algorithm=hashes.SHA256(),
+                                label=None
+                            )
+                        ).decode('utf-8')
+                        display_message = decrypted_message
+                    except Exception:
+                        display_message = "[Failed to decrypt message]"
+                self.received_messages.append(f"{sender} ({timestamp}): {display_message}")
 
     def send_message(self):
         message = self.input_message.text()
         if message:
             for target_username in self.target_users:
-                # Load recipient's public key
-                public_key_str, _ = load_user_keys(target_username)
-                if public_key_str:
-                    # Load public key
-                    public_key = serialization.load_pem_public_key(public_key_str.encode())
-
-                    # Encrypt the message
+                public_key = get_public_key(target_username)
+                if public_key:
+                    # Cripta il messaggio con la chiave pubblica del destinatario
                     encrypted_message = public_key.encrypt(
-                        message.encode(),
+                        message.encode('utf-8'),
                         padding.OAEP(
                             mgf=padding.MGF1(algorithm=hashes.SHA256()),
                             algorithm=hashes.SHA256(),
                             label=None
                         )
                     )
-                    # Send the encrypted message
-                    private_message = f"PRIVATE_MESSAGE|{self.username}|{encrypted_message.hex()}"
+
+                    # Codifica il messaggio cifrato in Base64 per la memorizzazione e la trasmissione
+                    encrypted_message_base64 = base64.b64encode(encrypted_message).decode('utf-8')
+
+                    # Salva il messaggio cifrato nel database
+                    save_message_to_db(self.username, target_username, encrypted_message_base64)
+
+                    # Invia il messaggio cifrato sulla rete
                     ip = self.peer_network.get_ip_by_username(target_username)
                     if ip:
+                        private_message = f"PRIVATE_MESSAGE|{self.username}|{encrypted_message_base64}"
                         self.peer_network.send_message(ip, 5001, private_message)
-                        # Save the message to the database
-                        save_message_to_db(self.username, target_username, message)
 
+            # Visualizza il messaggio inviato nell'interfaccia
+            self.received_messages.append(f"{self.username}: {message}")
             self.input_message.clear()
 
     def closeEvent(self, event):
         self.closed_signal.emit()
         event.accept()
 
-    def receive_message(self, message):
-        if message.startswith("PRIVATE_MESSAGE|"):
-            _, sender_username, encrypted_content = message.split("|", 2)
-            # Load this user's private key
-            _, private_key_str = load_user_keys(self.username)
-            if private_key_str:
-                # Load private key
-                private_key = serialization.load_pem_private_key(private_key_str.encode(), password=None)
+    def receive_message(self, full_message):
+        # Divide il messaggio in parti separate
+        parts = full_message.split('|')
+        
+        # Verifica che il formato sia corretto (almeno tre parti)
+        if len(parts) < 3:
+            self.received_messages.append("[Invalid message format]")
+            return
+        
+        # Estrai il mittente e il messaggio cifrato in Base64
+        sender = parts[1]
+        message_base64 = parts[2]
 
-                # Decrypt the message
-                encrypted_message = bytes.fromhex(encrypted_content)
-                decrypted_message = private_key.decrypt(
-                    encrypted_message,
-                    padding.OAEP(
-                        mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                        algorithm=hashes.SHA256(),
-                        label=None
-                    )
-                ).decode()
+        # Decodifica da Base64 a bytes
+        try:
+            encrypted_message = base64.b64decode(message_base64)
+        except ValueError:
+            self.received_messages.append("[Invalid message format]")
+            return
 
-                self.received_messages.append(f"{sender_username}: {decrypted_message}")
+        # Decripta il messaggio
+        private_key = get_private_key(self.username)
 
+        try:
+            decrypted_message = private_key.decrypt(
+                encrypted_message,
+                padding.OAEP(
+                    mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                    algorithm=hashes.SHA256(),
+                    label=None
+                )
+            ).decode('utf-8')
+            
+            # Mostra il messaggio decifrato con il mittente
+            self.received_messages.append(f"{sender}: {decrypted_message}")
+        except Exception:
+            self.received_messages.append("[Failed to decrypt message]")
 
 class GroupChatWindow(QWidget):
     def __init__(self, username, group_users, peer_network):
@@ -132,53 +194,16 @@ class GroupChatWindow(QWidget):
     def send_message(self):
         message = self.input_message.text()
         if message:
-            for target_username in self.target_users:
-                # Load recipient's public key
-                public_key_str, _ = load_user_keys(target_username)
-                if public_key_str:
-                    # Load public key
-                    public_key = serialization.load_pem_public_key(public_key_str.encode())
-
-                    # Encrypt the message
-                    encrypted_message = public_key.encrypt(
-                        message.encode(),
-                        padding.OAEP(
-                            mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                            algorithm=hashes.SHA256(),
-                            label=None
-                        )
-                    )
-                    # Send the encrypted message
-                    private_message = f"PRIVATE_MESSAGE|{self.username}|{encrypted_message.hex()}"
-                    ip = self.peer_network.get_ip_by_username(target_username)
-                    if ip:
-                        self.peer_network.send_message(ip, 5001, private_message)
-                        # Save the message to the database
-                        save_message_to_db(self.username, target_username, message)
-
+            self.received_messages.append(f"{self.username}: {message}")
+            for target_username in self.group_users:
+                ip = self.peer_network.get_ip_by_username(target_username)
+                if ip:
+                    group_message = f"GROUP_MESSAGE|{self.username}|{message}"
+                    self.peer_network.send_message(ip, 5001, group_message)
             self.input_message.clear()
 
     def receive_message(self, message):
-        if message.startswith("PRIVATE_MESSAGE|"):
-            _, sender_username, encrypted_content = message.split("|", 2)
-            # Load this user's private key
-            _, private_key_str = load_user_keys(self.username)
-            if private_key_str:
-                # Load private key
-                private_key = serialization.load_pem_private_key(private_key_str.encode(), password=None)
-
-                # Decrypt the message
-                encrypted_message = bytes.fromhex(encrypted_content)
-                decrypted_message = private_key.decrypt(
-                    encrypted_message,
-                    padding.OAEP(
-                        mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                        algorithm=hashes.SHA256(),
-                        label=None
-                    )
-                ).decode()
-
-                self.received_messages.append(f"{sender_username}: {decrypted_message}")
+        self.received_messages.append(message)
 
 
 
@@ -237,15 +262,3 @@ def load_messages_from_db(user1, user2):
     messages = cursor.fetchall()
     conn.close()
     return messages
-
-# Funzione per caricare le chiavi RSA dell'utente dal database
-def load_user_keys(username):
-    """Loads the RSA public and private keys for the specified user from the database."""
-    conn = sqlite3.connect('user_data.db')
-    cursor = conn.cursor()
-    cursor.execute("SELECT public_key, private_key FROM users WHERE username=?", (username,))
-    result = cursor.fetchone()
-    conn.close()
-    if result:
-        return result[0], result[1]  # Return public_key, private_key
-    return None, None  # If user not found
