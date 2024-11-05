@@ -3,8 +3,6 @@ from PyQt5.QtCore import pyqtSignal
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives import hashes
-import sqlite3
-import base64 
 import requests
 BASE_URL = 'http://172.20.10.5:5003'  # Assicurati che sia l'indirizzo corretto della tua API
 
@@ -24,7 +22,9 @@ def get_private_key(username):
     if response.status_code == 200:
         private_key_pem = response.json().get("private_key")
         if private_key_pem:
+            print(f"Private key fetched successfully for {username}.")
             return serialization.load_pem_private_key(private_key_pem.encode('utf-8'), password=None)
+    print(f"Failed to fetch private key for {username}: {response.json().get('message', 'Unknown error')}")
     return None
 
 
@@ -163,45 +163,38 @@ class PrivateChatWindow(QWidget):
         self.closed_signal.emit()
         event.accept()
 
-    def receive_message(self, full_message):
-        # Divide il messaggio in parti separandolo da '|'
-        parts = full_message.split('|')
-
-        # Verifica che il formato sia corretto: deve avere esattamente tre parti
-        if len(parts) != 3 or parts[0] != "PRIVATE_MESSAGE":
-            self.received_messages.append("[Invalid message format]")
-            return
-
-        # Estrai il mittente e il messaggio cifrato in formato esadecimale
-        sender = parts[1]
-        message_hex = parts[2]
-
-        # Converti da esadecimale a bytes
+    def receive_message(self, message):
+        """Handles receiving a message from the peer network."""
+        # Split the message to extract sender and content
         try:
-            encrypted_message = bytes.fromhex(message_hex)
+            message_type, sender, encrypted_message_hex = message.split('|')
+            if message_type == "PRIVATE_MESSAGE":
+                # Convert the hex message back to bytes
+                encrypted_message = bytes.fromhex(encrypted_message_hex)
+                # Get the private key to decrypt the message
+                private_key = get_private_key(self.username)
+
+                try:
+                    # Decrypt the message
+                    decrypted_message = private_key.decrypt(
+                        encrypted_message,
+                        padding.OAEP(
+                            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                            algorithm=hashes.SHA256(),
+                            label=None
+                        )
+                    ).decode('utf-8')
+                    display_message = decrypted_message
+                except Exception as e:
+                    print(f"Decryption failed: {e}")
+                    display_message = "[Failed to decrypt message]"
+
+                # Append the received message to the chat window
+                timestamp = self.get_current_timestamp()  # Assuming you want to add a timestamp
+                self.received_messages.append(f"{sender} ({timestamp}): {display_message}")
         except ValueError:
-            # Messaggio non valido; logga o notifica l'errore
-            self.received_messages.append("[Invalid message format]")
-            return
+            print("Received an invalid message format")
 
-        # Decripta il messaggio
-        private_key = get_private_key(self.username)
-
-        try:
-            decrypted_message = private_key.decrypt(
-                encrypted_message,
-                padding.OAEP(
-                    mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                    algorithm=hashes.SHA256(),
-                    label=None
-                )
-            ).decode('utf-8')
-
-            # Mostra il messaggio decifrato con il mittente
-            self.received_messages.append(f"{sender}: {decrypted_message}")
-        except Exception as e:
-            self.received_messages.append("[Failed to decrypt message]")
-            print(f"Error decrypting message: {e}")
 
 class GroupChatWindow(QWidget):
     def __init__(self, username, group_users, peer_network):
