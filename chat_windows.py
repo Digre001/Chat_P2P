@@ -108,23 +108,11 @@ class PrivateChatWindow(QWidget):
     def load_previous_messages(self):
         for target_user in self.target_users:
             messages = load_messages_from_db(self.username, target_user)
-            for sender, encrypted_message, timestamp in messages:
+            for sender, message, timestamp in messages:  # Usa 'message' invece di 'encrypted_message'
                 if sender == self.username:
-                    display_message = encrypted_message
+                    display_message = message  # Messaggio già in chiaro
                 else:
-                    private_key = get_private_key(self.username)
-                    try:
-                        decrypted_message = private_key.decrypt(
-                            encrypted_message,
-                            padding.OAEP(
-                                mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                                algorithm=hashes.SHA256(),
-                                label=None
-                            )
-                        ).decode('utf-8')
-                        display_message = decrypted_message
-                    except Exception:
-                        display_message = "[Failed to decrypt message]"
+                    display_message = message  # Messaggio già in chiaro
                 self.received_messages.append(f"{sender} ({timestamp}): {display_message}")
 
     def send_message(self):
