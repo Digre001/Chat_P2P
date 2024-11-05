@@ -167,31 +167,37 @@ class PrivateChatWindow(QWidget):
         """Handles receiving a message from the peer network."""
         # Split the message to extract sender and content
         try:
-            message_type, sender, encrypted_message_hex = message.split('|')
-            if message_type == "PRIVATE_MESSAGE":
-                # Convert the hex message back to bytes
-                encrypted_message = bytes.fromhex(encrypted_message_hex)
-                # Get the private key to decrypt the message
-                private_key = get_private_key(self.username)
+            print(f"Received message pls pls pls: {message}")
+            sender, encrypted_message_hex = message.split(': ', 1)  # Split on ': ' and take the rest as encrypted_message_hex
+            
+            # Assuming you have some logic to determine the message type
+            message_type = "PRIVATE_MESSAGE"  # Or set based on your application logic
+            
+            # Convert the hex message back to bytes
+            encrypted_message = bytes.fromhex(encrypted_message_hex.strip())  # Clean up any extra whitespace
 
-                try:
-                    # Decrypt the message
-                    decrypted_message = private_key.decrypt(
-                        encrypted_message,
-                        padding.OAEP(
-                            mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                            algorithm=hashes.SHA256(),
-                            label=None
-                        )
-                    ).decode('utf-8')
-                    display_message = decrypted_message
-                except Exception as e:
-                    print(f"Decryption failed: {e}")
-                    display_message = "[Failed to decrypt message]"
+            # Get the private key to decrypt the message
+            private_key = get_private_key(self.username)
 
-                # Append the received message to the chat window
-                timestamp = self.get_current_timestamp()  # Assuming you want to add a timestamp
-                self.received_messages.append(f"{sender} ({timestamp}): {display_message}")
+            try:
+                # Decrypt the message
+                decrypted_message = private_key.decrypt(
+                    encrypted_message,
+                    padding.OAEP(
+                        mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                        algorithm=hashes.SHA256(),
+                        label=None
+                    )
+                ).decode('utf-8')
+                display_message = decrypted_message
+            except Exception as e:
+                print(f"Decryption failed: {e}")
+                display_message = "[Failed to decrypt message]"
+
+            # Append the received message to the chat window
+            timestamp = self.get_current_timestamp()  # Assuming you want to add a timestamp
+            self.received_messages.append(f"{sender} ({timestamp}): {display_message}")
+            
         except ValueError:
             print("Received an invalid message format")
 
