@@ -77,6 +77,103 @@ def login_user():
     else:
         return jsonify({"success": False, "message": "Invalid username or password!"}), 401
 
+##### per richieste messaggi database#####
+
+@app.route('/initialize_database', methods=['POST'])
+def initialize_database():
+    """Endpoint per creare la tabella private_chats se non esiste."""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS private_chats (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sender TEXT,
+            receiver TEXT,
+            message TEXT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    conn.commit()
+    conn.close()
+    return jsonify({"success": True, "message": "Table private_chats initialized successfully!"}), 201
+
+@app.route('/save_message', methods=['POST'])
+def save_message():
+    data = request.get_json()
+    sender = data.get('sender')
+    receiver = data.get('receiver')
+    message = data.get('message')
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    cursor.execute('''
+        INSERT INTO private_chats (sender, receiver, message)
+        VALUES (?, ?, ?)
+    ''', (sender, receiver, message))
+    conn.commit()
+    conn.close()
+
+    return jsonify({"success": True, "message": "Message saved successfully!"}), 201
+
+@app.route('/load_messages', methods=['GET'])
+def load_messages():
+    user1 = request.args.get('user1')
+    user2 = request.args.get('user2')
+
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT sender, message, timestamp FROM private_chats
+        WHERE (sender = ? AND receiver = ?) OR (sender = ? AND receiver = ?)
+        ORDER BY timestamp
+    ''', (user1, user2, user2, user1))
+    messages = cursor.fetchall()
+    conn.close()
+
+    return jsonify({"success": True, "messages": messages}), 200
+
+@app.route('/get_keys/<username>', methods=['GET'])
+def get_keys(username):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT private_key, public_key FROM users WHERE username=?", (username,))
+    result = cursor.fetchone()
+    conn.close()
+
+    if result:
+        return jsonify({"public_key": result[1], "private_key": result[0]}), 200
+    else:
+        return jsonify({"error": "User not found"}), 404
+
+
+@app.route('/get_public_key/<username>', methods=['GET'])
+def get_public_key(username):
+    """Endpoint per ottenere solo la chiave pubblica di un utente."""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT public_key FROM users WHERE username=?", (username,))
+    result = cursor.fetchone()
+    conn.close()
+
+    if result:
+        return jsonify({"public_key": result[0]}), 200
+    else:
+        return jsonify({"error": "User not found"}), 404
+
+@app.route('/get_private_key/<username>', methods=['GET'])
+def get_private_key(username):
+    """Endpoint per ottenere solo la chiave privata di un utente."""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT private_key FROM users WHERE username=?", (username,))
+    result = cursor.fetchone()
+    conn.close()
+
+    if result:
+        return jsonify({"private_key": result[0]}), 200
+    else:
+        return jsonify({"error": "User not found"}), 404
     
 if __name__ == '__main__':
     # Crea il database e la tabella se non esistono
@@ -89,6 +186,15 @@ if __name__ == '__main__':
             password_hash TEXT NOT NULL,
             private_key TEXT NOT NULL,
             public_key TEXT NOT NULL
+        )
+    ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS private_chats (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sender TEXT,
+            receiver TEXT,
+            message TEXT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     ''')
     conn.commit()

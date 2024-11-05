@@ -5,30 +5,70 @@ from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives import hashes
 import sqlite3
 import base64 
+import requests
+BASE_URL = 'http://192.168.110.42:5003'  # Assicurati che sia l'indirizzo corretto della tua API
 
 # Function to retrieve the public key of a specific user from the database
 def get_public_key(username):
-    conn = sqlite3.connect('user_data.db')
-    cursor = conn.cursor()
-    cursor.execute('SELECT public_key FROM users WHERE username = ?', (username,))
-    result = cursor.fetchone()
-    conn.close()
-    if result and result[0]:  # Check if the key exists
-        # Load the public key from a PEM-formatted string
-        return serialization.load_pem_public_key(result[0].encode('utf-8'))
+    """Richiede la chiave pubblica di un utente tramite l'API."""
+    response = requests.get(f"{BASE_URL}/get_public_key/{username}")
+    if response.status_code == 200:
+        public_key_pem = response.json().get("public_key")
+        if public_key_pem:
+            return serialization.load_pem_public_key(public_key_pem.encode('utf-8'))
     return None
 
-# Function to retrieve the private key of a specific user from the database
 def get_private_key(username):
-    conn = sqlite3.connect('user_data.db')
-    cursor = conn.cursor()
-    cursor.execute('SELECT private_key FROM users WHERE username = ?', (username,))
-    result = cursor.fetchone()
-    conn.close()
-    if result and result[0]:  # Check if the key exists
-        # Load the private key from a PEM-formatted string
-        return serialization.load_pem_private_key(result[0].encode('utf-8'), password=None)
+    """Richiede la chiave privata di un utente tramite l'API."""
+    response = requests.get(f"{BASE_URL}/get_private_key/{username}")
+    if response.status_code == 200:
+        private_key_pem = response.json().get("private_key")
+        if private_key_pem:
+            return serialization.load_pem_private_key(private_key_pem.encode('utf-8'), password=None)
     return None
+
+
+def initialize_database():
+    """Effettua una richiesta all'API per inizializzare la tabella private_chats."""
+    response = requests.post(f"{BASE_URL}/initialize_database")
+    if response.status_code == 201:
+        print("Database initialized successfully!")
+    else:
+        print("Failed to initialize database:", response.json().get("message", "Unknown error"))
+
+
+def save_message_to_db(sender, receiver, message):
+    """Invia un messaggio in chiaro all'API per salvarlo nel database."""
+    data = {
+        "sender": sender,
+        "receiver": receiver,
+        "message": message
+    }
+    response = requests.post(f"{BASE_URL}/save_message", json=data)
+    return response.json()
+
+
+def load_messages_from_db(user1, user2):
+    """Carica i messaggi tra due utenti dal database tramite l'API."""
+    params = {
+        "user1": user1,
+        "user2": user2
+    }
+    response = requests.get(f"{BASE_URL}/load_messages", params=params)
+    if response.status_code == 200:
+        return response.json()["messages"]
+    else:
+        return []
+
+
+def load_user_keys(username):
+    """Carica le chiavi RSA dell'utente tramite l'API."""
+    response = requests.get(f"{BASE_URL}/get_keys/{username}")
+    if response.status_code == 200:
+        data = response.json()
+        return data.get("public_key"), data.get("private_key")
+    return None, None
+
 
 # Example usage in your PrivateChatWindow class
 class PrivateChatWindow(QWidget):
@@ -70,10 +110,8 @@ class PrivateChatWindow(QWidget):
             messages = load_messages_from_db(self.username, target_user)
             for sender, encrypted_message, timestamp in messages:
                 if sender == self.username:
-                    # Already plain text for sent messages
                     display_message = encrypted_message
                 else:
-                    # Decrypt the received message
                     private_key = get_private_key(self.username)
                     try:
                         decrypted_message = private_key.decrypt(
@@ -93,9 +131,12 @@ class PrivateChatWindow(QWidget):
         message = self.input_message.text()
         if message:
             for target_username in self.target_users:
+                # Salva il messaggio in chiaro nel database
+                save_message_to_db(self.username, target_username, message)
+
                 public_key = get_public_key(target_username)
                 if public_key:
-                    # Cripta il messaggio con la chiave pubblica del destinatario
+                    # Cifra il messaggio con la chiave pubblica del destinatario
                     encrypted_message = public_key.encrypt(
                         message.encode('utf-8'),
                         padding.OAEP(
@@ -105,19 +146,16 @@ class PrivateChatWindow(QWidget):
                         )
                     )
 
-                    # Codifica il messaggio cifrato in Base64 per la memorizzazione e la trasmissione
-                    encrypted_message_base64 = base64.b64encode(encrypted_message).decode('utf-8')
+                    # Converti il messaggio cifrato in formato esadecimale per JSON
+                    encrypted_message_hex = encrypted_message.hex()
 
-                    # Salva il messaggio cifrato nel database
-                    save_message_to_db(self.username, target_username, encrypted_message_base64)
-
-                    # Invia il messaggio cifrato sulla rete
+                    # Invia il messaggio cifrato
                     ip = self.peer_network.get_ip_by_username(target_username)
                     if ip:
-                        private_message = f"PRIVATE_MESSAGE|{self.username}|{encrypted_message_base64}"
+                        private_message = f"PRIVATE_MESSAGE|{self.username}|{encrypted_message_hex}"
                         self.peer_network.send_message(ip, 5001, private_message)
 
-            # Visualizza il messaggio inviato nell'interfaccia
+            # Mostra il messaggio inviato nella finestra di chat
             self.received_messages.append(f"{self.username}: {message}")
             self.input_message.clear()
 
@@ -126,22 +164,23 @@ class PrivateChatWindow(QWidget):
         event.accept()
 
     def receive_message(self, full_message):
-        # Divide il messaggio in parti separate
+        # Divide il messaggio in parti separandolo da '|'
         parts = full_message.split('|')
-        
-        # Verifica che il formato sia corretto (almeno tre parti)
-        if len(parts) < 3:
+
+        # Verifica che il formato sia corretto: deve avere esattamente tre parti
+        if len(parts) != 3 or parts[0] != "PRIVATE_MESSAGE":
             self.received_messages.append("[Invalid message format]")
             return
-        
-        # Estrai il mittente e il messaggio cifrato in Base64
-        sender = parts[1]
-        message_base64 = parts[2]
 
-        # Decodifica da Base64 a bytes
+        # Estrai il mittente e il messaggio cifrato in formato esadecimale
+        sender = parts[1]
+        message_hex = parts[2]
+
+        # Converti da esadecimale a bytes
         try:
-            encrypted_message = base64.b64decode(message_base64)
+            encrypted_message = bytes.fromhex(message_hex)
         except ValueError:
+            # Messaggio non valido; logga o notifica l'errore
             self.received_messages.append("[Invalid message format]")
             return
 
@@ -157,17 +196,18 @@ class PrivateChatWindow(QWidget):
                     label=None
                 )
             ).decode('utf-8')
-            
+
             # Mostra il messaggio decifrato con il mittente
             self.received_messages.append(f"{sender}: {decrypted_message}")
-        except Exception:
+        except Exception as e:
             self.received_messages.append("[Failed to decrypt message]")
+            print(f"Error decrypting message: {e}")
 
 class GroupChatWindow(QWidget):
     def __init__(self, username, group_users, peer_network):
         super().__init__()
         self.username = username
-        self.group_users = group_users  # lista degli utenti del gruppo
+        self.group_users = group_users
         self.peer_network = peer_network
         self.init_ui()
 
@@ -205,60 +245,3 @@ class GroupChatWindow(QWidget):
     def receive_message(self, message):
         self.received_messages.append(message)
 
-
-
-
-
-#####    DATABASE    #####     PER SALVARE I MESSAGGI      #####
-
-
-def initialize_database():
-    """Creates the private_chats table if it doesn't exist."""
-    conn = sqlite3.connect('user_data.db')
-    cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS private_chats (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            sender TEXT,
-            receiver TEXT,
-            message TEXT,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    conn.commit()
-    conn.close()
-
-# Funzione per salvare un messaggio nel database
-def save_message_to_db(sender, receiver, message):
-    initialize_database()
-    conn = sqlite3.connect('user_data.db')
-    cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS private_chats (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            sender TEXT,
-            receiver TEXT,
-            message TEXT,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    cursor.execute('''
-        INSERT INTO private_chats (sender, receiver, message) 
-        VALUES (?, ?, ?)
-    ''', (sender, receiver, message))
-    conn.commit()
-    conn.close()
-
-# Funzione per caricare i messaggi passati dal database
-def load_messages_from_db(user1, user2):
-    initialize_database()
-    conn = sqlite3.connect('user_data.db')
-    cursor = conn.cursor()
-    cursor.execute('''
-        SELECT sender, message, timestamp FROM private_chats
-        WHERE (sender = ? AND receiver = ?) OR (sender = ? AND receiver = ?)
-        ORDER BY timestamp
-    ''', (user1, user2, user2, user1))
-    messages = cursor.fetchall()
-    conn.close()
-    return messages
