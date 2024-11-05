@@ -105,16 +105,16 @@ class MessageApp(QWidget):
         elif message.startswith("GROUP_MESSAGE|"):
             # Extract group message details
             _, sender_username, msg_content = message.split("|", 2)
-            # Create the group key
-            group_key = ",".join(sorted(self.group_chats.keys()))  # Ensure you get the correct group key
-            if group_key in self.group_chats:
-                self.group_chats[group_key].receive_message(f"{sender_username}: {msg_content}")
-            else:
-                # If the group chat doesn't exist, open it
-                self.open_group_chat([sender_username])  # You might need to modify this line to fit your needs
-                # After opening, call receive_message again to display the message
+            # Only process messages not sent by the current user
+            if sender_username != self.username:  # Prevent sending your own messages
+                group_key = ",".join(sorted(self.group_chats.keys()))
                 if group_key in self.group_chats:
                     self.group_chats[group_key].receive_message(f"{sender_username}: {msg_content}")
+                else:
+                    self.open_group_chat([sender_username])  # Open group chat if it doesn't exist
+                    # After opening, call receive_message again to display the message
+                    if group_key in self.group_chats:
+                        self.group_chats[group_key].receive_message(f"{sender_username}: {msg_content}")
         elif message.startswith("PRIVATE_MESSAGE|"):
             _, sender_username, msg_content = message.split("|", 2)
             if sender_username in self.private_chats:
