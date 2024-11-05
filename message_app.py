@@ -103,13 +103,15 @@ class MessageApp(QWidget):
                 group_users.append(requester_username)
             self.open_group_chat(group_users)
         elif message.startswith("GROUP_MESSAGE|"):
+            # Extract group message details
             _, sender_username, msg_content = message.split("|", 2)
-            for group_chat in self.group_chats.values():
-                if sender_username in group_chat.group_users:
-                    # Invia il messaggio a tutti gli utenti del gruppo
-                    for user in group_chat.group_users:
-                        if user in self.private_chats:  # Assicurati che l'utente abbia una chat privata aperta
-                            self.private_chats[user].receive_message(f"{sender_username}: {msg_content}")
+            # Update the appropriate group chat window
+            group_key = ",".join(sorted(self.group_chats.keys()))  # ensure you get the correct group key
+            if group_key in self.group_chats:
+                self.group_chats[group_key].receive_message(f"{sender_username}: {msg_content}")  # Update this line
+            else:
+                self.open_group_chat([sender_username])  # Open group chat if it doesn't exist
+                self.group_chats[group_key].receive_message(f"{sender_username}: {msg_content}")
         elif message.startswith("PRIVATE_MESSAGE|"):
             _, sender_username, msg_content = message.split("|", 2)
             if sender_username in self.private_chats:

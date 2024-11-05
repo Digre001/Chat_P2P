@@ -234,6 +234,7 @@ class GroupChatWindow(QWidget):
     def send_message(self):
         message = self.input_message.text()
         if message:
+            # Mostra il messaggio nella chat
             self.received_messages.append(f"{self.username}: {message}")
             for target_username in self.group_users:
                 ip = self.peer_network.get_ip_by_username(target_username)
@@ -244,4 +245,3 @@ class GroupChatWindow(QWidget):
 
     def receive_message(self, message):
         self.received_messages.append(message)
-
