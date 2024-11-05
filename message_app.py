@@ -105,13 +105,16 @@ class MessageApp(QWidget):
         elif message.startswith("GROUP_MESSAGE|"):
             # Extract group message details
             _, sender_username, msg_content = message.split("|", 2)
-            # Update the appropriate group chat window
-            group_key = ",".join(sorted(self.group_chats.keys()))  # ensure you get the correct group key
+            # Create the group key
+            group_key = ",".join(sorted(self.group_chats.keys()))  # Ensure you get the correct group key
             if group_key in self.group_chats:
-                self.group_chats[group_key].receive_message(f"{sender_username}: {msg_content}")  # Update this line
-            else:
-                self.open_group_chat([sender_username])  # Open group chat if it doesn't exist
                 self.group_chats[group_key].receive_message(f"{sender_username}: {msg_content}")
+            else:
+                # If the group chat doesn't exist, open it
+                self.open_group_chat([sender_username])  # You might need to modify this line to fit your needs
+                # After opening, call receive_message again to display the message
+                if group_key in self.group_chats:
+                    self.group_chats[group_key].receive_message(f"{sender_username}: {msg_content}")
         elif message.startswith("PRIVATE_MESSAGE|"):
             _, sender_username, msg_content = message.split("|", 2)
             if sender_username in self.private_chats:
@@ -135,15 +138,15 @@ class MessageApp(QWidget):
 
     def open_group_chat(self, target_usernames):
         """Apre una finestra di chat di gruppo."""
-        group_key = ",".join(sorted(target_usernames))
-        if group_key not in self.private_chats or not self.private_chats[group_key].isVisible():
-            # Se la chat di gruppo non è già aperta, aprila
+        group_key = ",".join(sorted(target_usernames))  # Use sorted to ensure a consistent key
+        if group_key not in self.group_chats or not self.group_chats[group_key].isVisible():
+            # If the group chat is not already open, create a new instance
             group_chat = GroupChatWindow(self.username, target_usernames, self.peer_network)
             group_chat.show()
-            self.private_chats[group_key] = group_chat
+            self.group_chats[group_key] = group_chat  # Store it with the group key
         else:
-            # Porta la finestra esistente in primo piano
-            self.private_chats[group_key].activateWindow()
+            # If it is already open, bring it to the front
+            self.group_chats[group_key].activateWindow()
 
     def update_connected_users(self):
         """Aggiorna la lista degli utenti collegati nella finestra principale."""
