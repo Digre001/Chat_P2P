@@ -36,6 +36,7 @@ class MessageApp(QWidget):
         self.input_message = QLineEdit()
         self.input_message.setPlaceholderText("Write a message...")
         layout.addWidget(self.input_message)
+        self.input_message.returnPressed.connect(self.send_message)
 
         self.send_button = QPushButton("Send")
         self.send_button.clicked.connect(self.send_message)
@@ -47,6 +48,17 @@ class MessageApp(QWidget):
         self.connected_users_display = QTextEdit()
         self.connected_users_display.setReadOnly(True)
         layout.addWidget(self.connected_users_display)
+
+        # Istruzioni per avviare chat privata e di gruppo
+        self.instructions_label = QLabel(
+            "!’nome utente’ ------> avvia chat privata\n"
+            "!! ‘nome utente’,’nome utente’ ----> avvia chat di gruppo con gli utenti\n"
+            "(ricorda lo spazio per la chat di gruppo dai punti esclamativi)"
+        )
+        self.instructions_label.setStyleSheet(
+            "background-color: lightgray; padding: 10px; border-radius: 5px;"
+        )
+        layout.addWidget(self.instructions_label)
 
         self.setLayout(layout)
         self.setWindowTitle("Messages")

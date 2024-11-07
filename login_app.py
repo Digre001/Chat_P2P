@@ -32,15 +32,20 @@ class LoginApp(QWidget):
         spacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
         layout.addItem(spacer)
 
+        # Bottone di login
+        self.login_button = QPushButton("Login")
+        self.login_button.clicked.connect(self.login_user)
+        layout.addWidget(self.login_button)
+
         # Bottone di registrazione
         self.btn_register = QPushButton("Registrati")
         self.btn_register.clicked.connect(self.register_user)
         layout.addWidget(self.btn_register)
 
-        # Bottone di login
-        self.login_button = QPushButton("Login")
-        self.login_button.clicked.connect(self.login_user)
-        layout.addWidget(self.login_button)
+
+        # Associa il tasto "Invio" al pulsante di login
+        self.username_field.returnPressed.connect(self.login_user)
+        self.password_field.returnPressed.connect(self.login_user)
 
         # Imposta il layout
         self.setLayout(layout)
