@@ -4,7 +4,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives import hashes
 import requests
-BASE_URL = 'http://192.168.1.62:5003'  # Assicurati che sia l'indirizzo corretto della tua API
+BASE_URL = 'http://172.20.10.5:5003'  # Assicurati che sia l'indirizzo corretto della tua API
 
 # Function to retrieve the public key of a specific user from the database
 def get_public_key(username):
