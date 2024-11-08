@@ -148,7 +148,7 @@ class PrivateChatWindow(QWidget):
                             mgf=padding.MGF1(algorithm=hashes.SHA256()), # Mask generation function basata su SHA256
                             algorithm=hashes.SHA256(),  # Algoritmo di hashing SHA256
                             label=None # Nessuna etichetta specificata
-                    )
+                    
                         )
                     )
 
@@ -163,7 +163,7 @@ class PrivateChatWindow(QWidget):
 
            # Mostra il messaggio inviato nella finestra di chat
             self.received_messages.append(f"{self.username}: {message}")
-            self.input_message.clear()  Pulisce il campo di input per nuovi messaggi
+            self.input_message.clear()  #Pulisce il campo di input per nuovi messaggi
 
     def closeEvent(self, event): # Gestione dell'evento di chiusura della finestra
         self.closed_signal.emit() # Emette il segnale 'closed_signal' quando la finestra viene chiusa
