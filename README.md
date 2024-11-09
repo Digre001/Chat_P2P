@@ -15,6 +15,7 @@ Questa applicazione è una piattaforma di messaggistica peer-to-peer su reti loc
 - [Debug e Testing](#debug-e-testing)
 - [Prerequisiti](#prerequisiti)
 - [Installazione](#installazione)
+- [Avvio del Programma](#avvio-del-programma) 
 
 ---
 
@@ -190,8 +191,7 @@ Assicurati di avere installato quanto segue:
    Apri il terminale ed esegui il comando seguente per clonare il repository:
 
    ```bash
-   git clone https://github.com/tua_repo/app_messaggistica.git
-   cd app_messaggistica
+   git clone https://github.com/Digre001/Chat_P2P.git
    ```
 
 2. **Installa le dipendenze**:
@@ -209,7 +209,7 @@ Assicurati di avere installato quanto segue:
    Esegui il server API per gestire il backend dell'applicazione:
 
    ```bash
-   python API.py
+   python3 API.py
    ```
 
    Una volta avviato, il server sarà accessibile all'indirizzo [http://<ip_server>:5003]. <br>
@@ -223,7 +223,7 @@ Assicurati di avere installato quanto segue:
    Esegui il file principale per aprire l'interfaccia grafica dell'applicazione:
 
    ```bash
-   python main.py
+   python3 main.py
    ```
 
    Verrà aperta una finestra in cui potrai utilizzare le funzionalità dell'applicazione, inclusa la chat globale, le chat private e le chat di gruppo. <br> <br>
