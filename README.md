@@ -226,7 +226,7 @@ Assicurati di avere installato quanto segue:
 
 3. **Registrazione e Accesso**:
    - Crea un nuovo account per iniziare a utilizzare l'applicazione.
-   - Accedi con le credenziali create per accedere alla chat principale.
+   - Accedi con le credenziali create per accedere alla chat principale.<br><br>
 
 4. **Account già nel database**
    | **Username**       | **Password**                |
