@@ -12,7 +12,7 @@ Questa applicazione è una piattaforma di messaggistica peer-to-peer su reti loc
 - [Architettura del Sistema](#architettura-del-sistema)
 - [Sicurezza](#sicurezza)
 - [Limitazioni e Miglioramenti](#limitazioni-e-miglioramenti)
-- [Debug e Testing](#debug-e-testing)
+- [Testing](#testing)
 - [Prerequisiti](#prerequisiti)
 - [Installazione](#installazione)
 - [Avvio del Programma](#avvio-del-programma) 
@@ -75,7 +75,7 @@ L’obiettivo principale è quello di offrire uno strumento sicuro e facile da u
 | `API.py`           | Server API in Flask per la gestione degli utenti e dei messaggi, con supporto per la crittografia RSA. |
 | `chat_windows.py`  | Definisce le finestre di chat per le comunicazioni private e di gruppo.                                |
 | `login_app.py`     | Gestisce la finestra di login e registrazione tramite PyQt5 e interazione con l'API.                   |
-| `main.py`          | Entry point principale, avvia l'API e l'interfaccia utente.                                            |
+| `main.py`          | Entry point principale, Avvia l'interfaccia utente.                                            |
 | `message_app.py`   | Applicazione di messaggistica principale per la chat globale.                                          |
 | `peernetwork.py`   | Gestisce il protocollo di comunicazione peer-to-peer.                                                  |
 | `user_manager.py`  | Interagisce con l'API per registrazione, autenticazione e gestione delle chiavi.                       |
@@ -105,7 +105,6 @@ Gestisce la finestra di login:
 
 ### `main.py`
 File di avvio principale:
-- Esegue il server API come subprocess.
 - Configura le variabili di rete e lancia l'interfaccia principale dell'applicazione.
 
 ### `message_app.py`
@@ -115,8 +114,8 @@ Componente principale dell'applicazione di messaggistica:
 
 ### `peernetwork.py`
 Modulo per la comunicazione peer-to-peer:
-- Utilizza il broadcasting per rilevare e connettere i dispositivi in rete.
-- Gestisce la trasmissione dei messaggi in chat private e di gruppo.
+- Utilizza il broadcasting per rilevare e connettere i dispositivi in rete (UDP).
+- Gestisce la trasmissione e ricezione dei messaggi (TCP).
 
 ### `user_manager.py`
 Gestisce le funzioni API per la registrazione e autenticazione utenti:
@@ -152,21 +151,18 @@ L’architettura dell’applicazione è basata su una struttura modulare che sep
 ### Limitazioni Correnti
 - **Solo Rete Locale**: Questa applicazione funziona esclusivamente su reti locali, limitandone l’uso in contesti di rete più ampi.
 - **Sicurezza dell'API**: Attualmente il server Flask è configurato per ambienti di sviluppo. In ambienti di produzione, si consiglia di adottare misure di sicurezza avanzate.
-- **Scalabilità Limitata**: L'architettura peer-to-peer è più adatta per reti di piccole dimensioni, come LAN aziendali o domestiche.
+- **Scalabilità Limitata**: L'architettura peer-to-peer è più adatta per reti di piccole dimensioni, come LAN domestiche o aziendali.
 
 ### Implementazioni Future
-- **Rete Ibrida**: Considerare l'implementazione di una rete ibrida per supportare la comunicazione su reti più grandi o distribuite.
 - **Ottimizzazione della Crittografia**: Utilizzare chiavi simmetriche temporanee nelle chat di gruppo per migliorare la sicurezza senza appesantire il sistema.
 - **Miglioramenti UI**: L'interfaccia potrebbe essere migliorata con nuove funzionalità, come notifiche di stato per i messaggi, una visualizzazione avanzata degli utenti e temi personalizzabili.
+- **Gestione URL**: Sostituzione del <ip_server> con l'indirizzo IP locale del server automaticamente.
 
-## Debug e Testing
 
-1. **Debug del Server**:
-   - Usare `Flask` in modalità di debug durante lo sviluppo per ricevere messaggi di errore dettagliati.
+## Testing
 
-2. **Test dell'Interfaccia**:
+**Test dell'Interfaccia**:
    - La parte grafica può essere testata manualmente per verificare che tutte le funzionalità siano accessibili e funzionino correttamente.
-   - Per test automatici, considerare l'uso di strumenti come Pytest e unittest per le funzionalità non-UI.
 
 ----
 
@@ -206,7 +202,7 @@ Assicurati di avere installato quanto segue:
 
 1. **Avvia il server Flask**:
 
-   Esegui il server API per gestire il backend dell'applicazione:
+   Esegui il server API per gestire il backend dell'applicazione (solo su una macchina):
 
    ```bash
    python3 API.py

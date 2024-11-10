@@ -10,7 +10,7 @@ class PeerNetwork(QObject):
     message_received_signal = pyqtSignal(str)  # Segnale emesso quando viene ricevuto un nuovo messaggio
 
     # Inizializzazione della classe PeerNetwork
-    def __init__(self, broadcast_ip="172.20.10.15", port=5000, buffer_size=1024, peer_timeout=10):
+    def __init__(self, broadcast_ip="192.168.178.255", port=5000, buffer_size=1024, peer_timeout=10):
         super().__init__()  # Necessario per l'inizializzazione di QObject (PyQt)
         self.BROADCAST_IP = broadcast_ip  # Indirizzo IP di broadcast per inviare messaggi
         self.PORT = port  # Porta su cui il peer ascolterà

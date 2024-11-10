@@ -1,7 +1,7 @@
 import requests  # Importa il modulo per fare richieste HTTP
 
 class UserManager:
-    BASE_URL = 'http://172.20.10.5:5003'  # L'URL di base del server API per la gestione degli utenti, da aggiornare con l'indirizzo corretto
+    BASE_URL = 'http://192.168.178.220:5003'  # L'URL di base del server API per la gestione degli utenti, da aggiornare con l'indirizzo corretto
 
     def register_user(self, username, password):
         """

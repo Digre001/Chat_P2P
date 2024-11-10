@@ -4,7 +4,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives import hashes
 import requests
-BASE_URL = 'http://172.20.10.5:5003'  # Indirizzo API
+BASE_URL = 'http://192.168.178.220:5003'  # Indirizzo API
 
 # Funzione per recuperare la chiave pubblica di un utente specifico dal database
 def get_public_key(username):
@@ -173,7 +173,7 @@ class PrivateChatWindow(QWidget):
         """Gestisce la ricezione di un messaggio dalla rete peer."""
         # Divide il messaggio per estrarre il mittente e il contenuto
         try:
-            print(f"Received message pls pls pls: {message}")
+            
              # Divide il messaggio su ': ' e considera il resto come il messaggio cifrato in esadecimale
             sender, encrypted_message_hex = message.split(': ', 1)   # Divide il messaggio su ': ' e considera il resto come il messaggio cifrato in esadecimale
             
