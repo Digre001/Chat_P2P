@@ -228,4 +228,13 @@ Assicurati di avere installato quanto segue:
    - Crea un nuovo account per iniziare a utilizzare l'applicazione.
    - Accedi con le credenziali create per accedere alla chat principale.
 
+4. **Account già nel database**
+   | **Username**       | **Password**                |
+   |--------------------|-----------------------------|
+   | `fabio`            | `digregorio`                |
+   | `lorenzo`          | `pagliaricci`               |
+   | `virginia`         | `simoncini`                 |
+
+
+
 
