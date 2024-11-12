@@ -4,7 +4,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives import hashes
 import requests
-BASE_URL = 'http://192.168.178.220:5003'  # Indirizzo API
+BASE_URL = 'http://172.20.10.5:5003'  # Indirizzo API
 
 # Funzione per recuperare la chiave pubblica di un utente specifico dal database
 def get_public_key(username):
@@ -65,17 +65,6 @@ def load_messages_from_db(user1, user2):
         return response.json()["messages"]
     else:
         return []  # In caso di errore, restituisce una lista vuota
-
-# Funzione per caricare le chiavi RSA (pubblica e privata) di un utente tramite l'API
-def load_user_keys(username):
-    """Carica le chiavi RSA dell'utente tramite l'API."""
-    # Effettua una richiesta GET all'API per ottenere le chiavi dell'utente specificato
-    response = requests.get(f"{BASE_URL}/get_keys/{username}")
-     # Se la risposta ha avuto successo (status code 200), estrae i dati dal JSON della risposta
-    if response.status_code == 200:
-        data = response.json()
-        return data.get("public_key"), data.get("private_key")  # Restituisce la chiave pubblica e la chiave privata dell'utente
-    return None, None # Se non è riuscito a ottenere le chiavi, restituisce None per entrambe
 
 
 # Esempio di utilizzo nella classe PrivateChatWindow

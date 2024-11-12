@@ -199,29 +199,6 @@ def load_messages():
     return jsonify({"success": True, "messages": messages}), 200
 
 
-@app.route('/get_keys/<username>', methods=['GET'])
-def get_keys(username):
-    """Ottiene le chiavi RSA (pubblica e privata) di un utente specifico.
-
-    Parametri della richiesta:
-        - username: Nome dell'utente.
-
-    Restituisce:
-        - JSON contenente la chiave pubblica e privata dell'utente.
-    """
-    conn = get_db()
-    cursor = conn.cursor()
-    # Cerca le chiavi dell'utente nel database
-    cursor.execute("SELECT private_key, public_key FROM users WHERE username=?", (username,))
-    result = cursor.fetchone()  # Ottiene le chiavi
-    conn.close()
-
-    if result:
-        return jsonify({"public_key": result[1], "private_key": result[0]}), 200
-    else:
-        return jsonify({"error": "User not found"}), 404
-
-
 @app.route('/get_public_key/<username>', methods=['GET'])
 def get_public_key(username):
     """Ottiene solo la chiave pubblica di un utente.
