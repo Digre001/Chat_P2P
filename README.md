@@ -1,6 +1,6 @@
 #  Peer-to-Peer Chat Application
 
-To read the README.md in Italian, click [here](README_english.md).
+To read the README.md in English, click [here](README_english.md).
 
 Questa applicazione è una piattaforma di messaggistica peer-to-peer su reti locali, progettata per consentire comunicazioni sicure tra utenti connessi alla stessa rete. La piattaforma supporta chat globali, private e di gruppo, utilizzando la crittografia RSA per garantire la privacy nelle chat private. Il backend è gestito tramite Flask, mentre l’interfaccia utente è sviluppata in PyQt5.
 
